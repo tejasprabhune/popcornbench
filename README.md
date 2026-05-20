@@ -130,7 +130,7 @@ The three intervention personas (`methodical_engineer`, `speed_obsessed`, `code_
 
 Locally, every run writes a JSONL trace under `traces/`. Single runs land at `traces/<scenario>.jsonl`; sweep cells land at `traces/<sweep>/<cell_slug>/<scenario>.jsonl`. Each line is one event (tool call, tool result, state diff, cost, grader). The viewer polls the file while a run is in flight, so the trace is readable as it grows.
 
-For publishing, `scripts/publish_traces.py` copies the ensemble viewer plus every published run into a worktree on the `gh-pages` branch and pushes. Each run gets its own per-run viewer URL (`<repo>.github.io/<run-slug>/viewer.html`); the script also rebuilds a top-level leaderboard at the repo root. Run once after a scenario or pass `--watch 300` to republish every five minutes while a sweep is running. The aggregate leaderboard is at https://arjun-banerjee.github.io/POPCORNBENCH/.
+For publishing, `scripts/publish_traces.py` copies the ensemble viewer plus every published run into a worktree on the `gh-pages` branch and pushes. Each run gets its own per-run viewer URL (`<repo>.github.io/<run-slug>/viewer.html`); the script also rebuilds a top-level leaderboard at the repo root. Run once after a scenario or pass `--watch 300` to republish every five minutes while a sweep is running. The aggregate leaderboard is at https://tejasprabhune.github.io/popcornbench/.
 
 ## SSH and GPU box workflow
 
@@ -141,9 +141,8 @@ Most development happens on a laptop and most actual evaluations happen on a GPU
 git push -u origin tejas/ensemble
 
 # GPU box
-git clone git@github.com:arjun-banerjee/POPCORNBENCH.git
-git -C POPCORNBENCH checkout tejas/ensemble
-cd POPCORNBENCH
+git clone git@github.com:tejasprabhune/popcornbench.git
+cd popcornbench
 uv sync --extra gpu
 ensemble worlds add popcorn $(pwd)/popcorn_world
 ensemble run popcorn.single_problem --world popcorn
