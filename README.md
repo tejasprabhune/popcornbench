@@ -133,10 +133,19 @@ Added:
 ## Reward-hacking posture
 
 The static checker in `src/kernelbench/kernel_static_checker.py`
-already covers try/except fallbacks, timing-function monkey patches,
-fp32 to fp16 downgrades, lazy tensor subclasses, stream and thread
-injection, backend-specific implementation requirements. popcorn_world
-layers more on top:
+covers the original KernelBench list (try/except fallbacks, timing
+function monkey patches, fp32 to fp16 downgrades, lazy tensor
+subclasses, stream and thread injection, backend implementation
+requirements) plus four new patterns added for popcorn_world:
+
+- `super_forward`: a `ModelNew.forward` that just calls
+  `super().forward(...)` and so passes correctness for free.
+- `equal_nan`: hides NaN-producing kernels.
+- `sleep_calls`: pushes compute outside the timing window.
+- `init_heavy` (warning): suggests `ModelNew.__init__` is doing the
+  real work that belongs in `forward`.
+
+Beyond the static checker, popcorn_world adds:
 
 - `static_check` is a regular tool the agent is encouraged to call
   before `submit_kernel`. The grader exposes
@@ -146,27 +155,56 @@ layers more on top:
   never reveals the reference runtime or the speedup ratio. The
   `excessive_speedup` flag from `eval_kernel_against_ref` is surfaced
   as its own grader predicate.
+- When `POPCORN_HELD_OUT_SEED` is set, `submit_kernel` re-runs
+  correctness against that seed after the agent-visible check
+  passes. The result lands on the kernel record but is hidden from
+  the agent; the grader reads it via the `held_out_correctness_passed`
+  and `held_out_correctness_failed` predicates.
+- Setting `POPCORN_SANDBOX_GPU_TOOLS=true` opts the heavy GPU tools
+  (`compile_kernel`, `run_correctness`, `submit_kernel`,
+  `profile_kernel`, `disassemble_kernel`) into ensemble's subprocess
+  sandbox, so a CUDA-context-fatal kernel only kills its worker
+  rather than poisoning the rest of the run. Off by default because
+  the sandbox worker reimports popcorn_world from scratch (i.e. it
+  does not see the parent's `fetch_problem` state); enabling it
+  requires the scenario to pass the problem reference through the
+  args of every sandboxed call.
 - The `code_reviewer` persona pairs with `judge_review` to add a
   second pass: a separate agent describes what the kernel does, names
   the speedup mechanism, and flags anything suspicious. Its tools are
   read-only with respect to authoring.
 
-## Known gaps in ensemble that popcorn_world works around
+## Publishing traces to GitHub Pages
 
-- ensemble has no SSH tool runner. We pull the branch on the GPU box
-  and run scenarios in-process, which works because PopcornBench's
-  eval code already runs on whatever device CUDA exposes.
-- ensemble's `tool()` helper does not forward `costs` or `progress`.
-  popcorn_world bypasses that helper and constructs `PluginTool`
-  records directly with the full JSON ABI. (An upstream fix is in
-  flight; see `~/Documents/ensemble/python/ensemble/world.py`.)
-- ensemble's trace is serialized at the end of a run. While a run is
-  going, the trace is not on disk. The intent is to add a "live"
-  writer that flushes per event; for now use `ensemble trace view`
-  after the run finishes.
-- ensemble's trace viewer does not pretty-print fenced code blocks.
-  Kernel source shows as a single-line `tool_call.args.kernel_code`
-  for now.
+`scripts/publish_traces.py` copies the ensemble trace viewer plus
+every file in `traces/` into a worktree on the `gh-pages` branch and
+pushes. Each run gets its own page (`https://<user>.github.io/<repo>/<run>/viewer.html`),
+plus a top-level index. Run once after a scenario, or pass
+`--watch 300` to republish on a five-minute cadence while a sweep is
+running. Set `ENSEMBLE_ROOT` (or pass `--ensemble-root`) to the
+ensemble checkout that holds `site/`.
+
+## What ensemble grew along with popcorn_world
+
+A few small enhancements were added upstream so popcorn_world (and
+other future worlds) get them for free:
+
+- `World(trace_path=...)` and `world.set_trace_path(...)` mirror every
+  event to a JSONL file, flushed per line. The CLI sets it
+  automatically so `traces/<scenario>.jsonl` is readable while the
+  run is happening.
+- The trace viewer polls `trace.jsonl` every two seconds, sticks to
+  the tail unless the user scrubs back, renders fenced code blocks
+  and long tool args as collapsible code, and emits a grader-output
+  panel at the end of every run.
+- `set_budget(unit, amount, actor=...)` and `record_cost(unit, amount, actor=...)`
+  attribute spend per actor. Halts fire on whichever cap (world-wide
+  or per-actor) is crossed first.
+- `PluginTool.sandbox=True` runs the tool in a fresh subprocess via
+  `python -m ensemble.tool_worker`. Useful for any tool whose work
+  fully fits in its args.
+- The python `tool()` helper now forwards `costs` and `progress` from
+  the wrapped function into the trace.
 
 ## License
 
