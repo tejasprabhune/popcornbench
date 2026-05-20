@@ -19,8 +19,8 @@
     </header>
 
     <section class="prose">
-      <p>[copy: one paragraph on what PopcornBench is. Two or three sentences. The audience is someone who landed on the page from a link and wants to know what they are looking at before they read the table.]</p>
-      <p>[copy: one paragraph on how to read the results. What success rate means here, what speedup is measured against, what counts as a passed submission, and the caveat about held-out re-verification being on or off per cell. Two or three sentences.]</p>
+      <p>PopcornBench evaluates LLM agents on GPU kernel tasks derived from KernelBench. A run gives an agent a PyTorch reference module and a set of tools (compile, run for correctness, run for timing, static-check, profile, disassemble), and the agent iterates until it submits a custom CUDA kernel that matches the reference and beats it for runtime. The harness is <a href="https://tejasprabhune.github.io/ensemble/">ensemble</a>; the world, the tools, the personas, and the layered grader (static checker, hidden reference runtime, held-out re-verification) live in this repo.</p>
+      <p>The leaderboard aggregates every published run by model. Success rate is the fraction of runs whose submission passed the agent-visible correctness check; mean speedup is the average over those successful runs of <code>ref_runtime / kernel_runtime</code> against the PyTorch reference. The second table breaks both down by KernelBench level (level 1 single ops, level 2 fused ops, level 3 full models, level 4 transformers, level 5 hardware translation). Held-out re-verification is on or off per cell depending on whether the run set <code>POPCORN_HELD_OUT_SEED</code>; cells that did not run held-out trust the agent-visible correctness check alone, which is a weaker signal than a held-out pass and worth keeping in mind when comparing rows.</p>
     </section>
 
     <div class="filters" id="filters">

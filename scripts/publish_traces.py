@@ -227,6 +227,13 @@ def _load_runs_jsonl_index(trace: Path) -> Optional[Dict[str, Any]]:
 
 
 _GRADER_NOTE = re.compile(r"^grader:\s*(\{.*\})$")
+# Matches the agent-spawn note popcorn_world emits right after
+# spawn_agent so ad-hoc traces carry the persona and model the
+# leaderboard wants to display. The system_prompt portion below the
+# first line is rendered by the trace viewer, not parsed here.
+_SPAWN_NOTE = re.compile(
+    r"^agent_spawn:\s+id=(?P<id>\S+)\s+persona=(?P<persona>\S+)\s+model=(?P<model>\S+)"
+)
 
 
 def _parse_trace(trace: Path) -> Summary:
@@ -285,6 +292,15 @@ def _parse_trace(trace: Path) -> Summary:
                     grader_payload = json.loads(m.group(1))
                 except json.JSONDecodeError:
                     grader_payload = None
+            sm = _SPAWN_NOTE.match(note.splitlines()[0] if note else "")
+            if sm:
+                # Prefer the first spawn we see (the author actor in
+                # judge_review) so the leaderboard row picks the
+                # author's model rather than the reviewer's.
+                if summary.persona is None:
+                    summary.persona = sm.group("persona")
+                if summary.model is None:
+                    summary.model = sm.group("model")
 
         costs = ev.get("costs") or payload.get("costs") or {}
         if isinstance(costs, dict):
