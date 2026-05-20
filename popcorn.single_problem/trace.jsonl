@@ -1,0 +1,7 @@
+{"tick": 0, "ts_ms": 1779272781858, "actor": null, "payload": {"kind": "system", "note": "ensemble: backend=mock"}}
+{"tick": 1, "ts_ms": 1779272781868, "actor": "kernel_author", "payload": {"kind": "tool_call", "name": "fetch_problem", "args": {"level": 1, "problem_id": 19, "dataset_src": "huggingface"}}}
+{"tick": 1, "ts_ms": 1779272781878, "actor": "kernel_author", "payload": {"kind": "tool_result", "name": "fetch_problem", "result": {"effect": {"ok": true, "level": 1, "problem_id": 19, "name": "ReLU.py"}}}}
+{"tick": 2, "ts_ms": 1779272781888, "actor": "kernel_author", "payload": {"kind": "tool_call", "name": "submit_kernel", "args": {"kernel_code": "..."}}}
+{"tick": 2, "ts_ms": 1779272781898, "actor": "kernel_author", "payload": {"kind": "state_diff", "diff": [{"field": "kernel_submissions", "old": null, "new": {"kernel_hash": "abc", "compiled": true, "correctness": true, "runtime_us": 41.2, "ref_runtime_us": 99.0, "speedup": 2.4}}]}}
+{"tick": 2, "ts_ms": 1779272781908, "actor": "kernel_author", "payload": {"kind": "tool_result", "name": "submit_kernel", "result": {"effect": {"ok": true, "runtime_us": 41.2}, "costs": {"gpu_seconds": 12.3}}}, "costs": {"gpu_seconds": 12.3}}
+{"tick": 3, "ts_ms": 1779272781918, "actor": null, "payload": {"kind": "system", "note": "grader: {\"kind\": \"grader\", \"scenario\": \"popcorn.single_problem\", \"scores\": {\"submitted\": 1.0, \"submission_passed\": 1.0, \"any_correct\": 1.0, \"lint_skipped\": 0.0, \"excessive_speedup_flagged\": 0.0}}"}}

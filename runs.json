@@ -1,0 +1,28 @@
+{
+  "generated_at": "2026-05-20T10:37:04Z",
+  "runs": [
+    {
+      "slug": "popcorn.single_problem",
+      "timestamp": "2026-05-20T10:26:21Z",
+      "scenario": "popcorn.single_problem",
+      "model": null,
+      "persona": null,
+      "level": 1,
+      "problem_id": 19,
+      "problem_name": "ReLU.py",
+      "outcome": "passed",
+      "runtime_us": 41.2,
+      "ref_runtime_us": 99.0,
+      "speedup": 2.4,
+      "cost_gpu_seconds": 12.3,
+      "scores": {
+        "submitted": 1.0,
+        "submission_passed": 1.0,
+        "any_correct": 1.0,
+        "lint_skipped": 0.0,
+        "excessive_speedup_flagged": 0.0
+      },
+      "viewer_path": "popcorn.single_problem/viewer.html"
+    }
+  ]
+}

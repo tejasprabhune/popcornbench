@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PopcornBench leaderboard</title>
+  <link rel="stylesheet" href="https://use.typekit.net/bsk0vur.css">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main>
+    <header class="site">
+      <a class="wordmark" href="./">PopcornBench</a>
+      <nav>
+        <a href="./" class="active">leaderboard</a>
+        <a href="runs.html">runs</a>
+        <a href="https://github.com/tejasprabhune/popcornbench">repo</a>
+      </nav>
+    </header>
+
+    <section class="prose">
+      <p>[copy: one paragraph on what PopcornBench is. Two or three sentences. The audience is someone who landed on the page from a link and wants to know what they are looking at before they read the table.]</p>
+      <p>[copy: one paragraph on how to read the results. What success rate means here, what speedup is measured against, what counts as a passed submission, and the caveat about held-out re-verification being on or off per cell. Two or three sentences.]</p>
+    </section>
+
+    <div class="filters" id="filters">
+      <label>level
+        <select data-filter="level"><option value="">all</option></select>
+      </label>
+      <label>persona
+        <select data-filter="persona"><option value="">all</option></select>
+      </label>
+      <label>scenario
+        <select data-filter="scenario"><option value="">all</option></select>
+      </label>
+    </div>
+
+    <div class="table-scroll">
+      <table class="data" id="by-model">
+        <caption>By model</caption>
+        <thead>
+          <tr>
+            <th data-sortable="true" data-key="model">model</th>
+            <th data-sortable="true" data-key="runs" class="numeric">runs</th>
+            <th data-sortable="true" data-key="success_rate" class="numeric">success rate</th>
+            <th data-sortable="true" data-key="mean_speedup" class="numeric">mean speedup</th>
+            <th data-sortable="true" data-key="cost_gpu_seconds" class="numeric">gpu-seconds</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+    <div class="table-scroll">
+      <table class="data" id="by-model-level">
+        <caption>By model and level</caption>
+        <thead>
+          <tr>
+            <th data-sortable="true" data-key="model">model</th>
+            <th data-sortable="true" data-key="level" class="numeric">level</th>
+            <th data-sortable="true" data-key="runs" class="numeric">runs</th>
+            <th data-sortable="true" data-key="success_rate" class="numeric">success rate</th>
+            <th data-sortable="true" data-key="mean_speedup" class="numeric">mean speedup</th>
+            <th data-sortable="true" data-key="cost_gpu_seconds" class="numeric">gpu-seconds</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+    <footer class="site">
+      <p>
+        <a href="runs.html">browse every published run</a>
+        &middot;
+        <a href="https://github.com/tejasprabhune/popcornbench">repo</a>
+        &middot;
+        <a href="https://github.com/tejasprabhune/popcornbench/tree/main/docs/reference">docs</a>
+        &middot;
+        <span id="generated-at" class="muted"></span>
+      </p>
+    </footer>
+  </main>
+
+  <script src="app.js"></script>
+  <script>
+    PopcornSite.renderLeaderboard();
+  </script>
+</body>
+</html>
