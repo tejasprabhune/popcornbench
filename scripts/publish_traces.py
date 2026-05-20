@@ -103,15 +103,21 @@ def _ensure_gh_pages_branch_exists() -> None:
     _git(["checkout", "-"])
 
 
-def _worktree(scratch: Path) -> Path:
+def _worktree(scratch: Path, *, fetch_remote: bool = True) -> Path:
     worktree = scratch / "gh-pages-worktree"
     if worktree.exists():
         _git(["worktree", "remove", "--force", str(worktree)], check=False)
         shutil.rmtree(worktree, ignore_errors=True)
-    _git(["fetch", "origin", "gh-pages"], check=False)
-    _git(["worktree", "add", "-B", "gh-pages", str(worktree), "origin/gh-pages"], check=False)
+    if fetch_remote:
+        _git(["fetch", "origin", "gh-pages"], check=False)
+        _git(["worktree", "add", "-B", "gh-pages", str(worktree), "origin/gh-pages"], check=False)
     if not worktree.exists():
-        _git(["worktree", "add", "-b", "gh-pages", str(worktree)])
+        # Fall back to a local branch (creates an empty one when no
+        # remote was fetched). The wipe step then leaves an empty
+        # worktree that gets populated from site/ and traces/ below.
+        _git(["worktree", "add", "-b", "gh-pages-local", str(worktree)], check=False)
+        if not worktree.exists():
+            _git(["worktree", "add", str(worktree)], check=False)
     return worktree
 
 
@@ -394,9 +400,11 @@ def _write_runs_json(worktree: Path, summaries: List[Summary]) -> None:
     (worktree / "runs.json").write_text(json.dumps(payload, indent=2), encoding="utf-8")
 
 
-def publish(ensemble_root: Path, scratch: Path) -> None:
+def publish(ensemble_root: Path, scratch: Path, dry_run: bool = False) -> None:
     _ensure_gh_pages_branch_exists()
-    worktree = _worktree(scratch)
+    # Dry-run does not need the remote gh-pages tree; skipping the
+    # fetch keeps the verification fast and works offline.
+    worktree = _worktree(scratch, fetch_remote=not dry_run)
     _wipe_worktree(worktree)
 
     _copy_local_site(worktree)
@@ -410,6 +418,10 @@ def publish(ensemble_root: Path, scratch: Path) -> None:
         shutil.copy2(trace, target / "trace.jsonl")
 
     _write_runs_json(worktree, summaries)
+
+    if dry_run:
+        print(f"dry-run: built worktree at {worktree} with {len(summaries)} runs", file=sys.stderr)
+        return
 
     _git(["add", "."], cwd=worktree)
     diff = _git(["status", "--porcelain"], cwd=worktree)
@@ -446,6 +458,11 @@ def main(argv: Optional[List[str]] = None) -> int:
         default=0,
         help="If > 0, repeat the publish every N seconds.",
     )
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Build the worktree and runs.json but skip the commit and push.",
+    )
     args = parser.parse_args(argv)
 
     ensemble_root = Path(args.ensemble_root).expanduser().resolve()
@@ -454,7 +471,7 @@ def main(argv: Optional[List[str]] = None) -> int:
 
     while True:
         try:
-            publish(ensemble_root, scratch)
+            publish(ensemble_root, scratch, dry_run=args.dry_run)
         except Exception as e:
             print(f"publish failed: {e}", file=sys.stderr)
         if args.watch <= 0:

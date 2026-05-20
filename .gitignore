@@ -8,6 +8,7 @@ scratch/
 results/*
 runs/*
 cache/*
+traces/
 !results/timing/
 .env
 _build_cache/
