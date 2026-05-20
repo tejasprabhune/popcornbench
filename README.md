@@ -58,7 +58,7 @@ Level 3 is 50 full-model problems: `MLP`, `ResNet101`, `VGG16`. The agent writes
 
 Level 4 is 20 transformer benchmarks: real Hugging Face model identifiers at fixed batch and sequence sizes (`EleutherAI-gpt-neo-2p7B_bs32_seq256`, `gpt2_bs1_seq1023`, and so on). The reference is a transformer forward pass; the agent is expected to fuse attention, normalisation, and feed-forward layers.
 
-Level 5 is the hardware translation task. The agent gets an A100-tuned CUDA source file (paged attention, Flash Attention 2, Marlin INT4 GEMM, SwiGLU, fused RMSNorm) and re-optimises it for H100. Paired source kernels live under `KernelBench/level5/kernels/a100/` and `KernelBench/level5/kernels/h100/`. The translation scenario itself is not yet wired into `popcorn_world`; the `normal_translation` persona is in place for when it lands.
+Level 5 is the hardware translation task. The agent gets an A100-tuned CUDA source file (paged attention, Flash Attention 2, Marlin INT4 GEMM, SwiGLU, fused RMSNorm) and re-optimises it for H100. Paired source kernels live under `KernelBench/level5/kernels/a100/` and `KernelBench/level5/kernels/h100/`. The agent-side affordance lives in `popcorn.translate_problem` (the scenario) and `fetch_translation_problem` (the tool that reads the source `.cu`/`.cuh` into the agent's context). Automated correctness verification still depends on per-problem PyTorch wrappers that have not yet landed; in the meantime `submit_kernel` records the submission and skips eval, and the grader scores participation plus static-check hygiene. See [docs/reference/scenarios.md](docs/reference/scenarios.md#popcorntranslate_problem) for the full surface.
 
 ## Running a single problem
 

@@ -69,6 +69,40 @@ POPCORN_REVIEWER_MODEL=claude-haiku-4-5 \
 ensemble run popcorn.judge_review --world popcorn
 ```
 
+## popcorn.translate_problem
+
+File: `popcorn_world/scenarios/translate_problem.py`. World: `popcorn`. One agent against one hardware-translation problem (the level-5 task: re-optimise an A100 source kernel for H100).
+
+The scenario spawns a single `kernel_translator` agent (default persona `normal_translation`), kicks off `fetch_translation_problem` as the initial action (defaulting to `level=5`, `problem_id=1`, `source_arch="a100"`, `target_arch="h100"`), and yields the same `world.turn_count > POPCORN_MAX_TURNS` until predicate as the other scenarios. The agent's default tool set is `fetch_translation_problem`, `compile_kernel`, `get_gpu_specs`, `static_check`, and `submit_kernel`. `run_correctness` is left out of the default set because the level-5 problems have no PyTorch reference; including it returns a short-circuit message.
+
+Env vars (defaults in parentheses):
+
+- `POPCORN_LEVEL` (5), `POPCORN_PROBLEM_ID` (1): the translation problem.
+- `POPCORN_SOURCE_ARCH` ("a100"), `POPCORN_TARGET_ARCH` ("h100"): source and target GPU architectures. The current dataset only has A100 and H100, but the arg signatures are open so new pairs (Hopper to Blackwell, RDNA3 to RDNA4) can land without scenario changes.
+- `POPCORN_PERSONA` ("normal_translation"): the persona that resolves through the world's `personas_dir`. Set to a translation-flavoured intervention persona once any land.
+- `POPCORN_AGENT_MODEL` ("claude-sonnet-4-5"): the LLM behind the agent.
+- `POPCORN_TOOLS`, `POPCORN_MAX_TURNS` (20), `POPCORN_GPU_BUDGET` (600): same shape as `popcorn.single_problem`.
+
+Graders returned:
+
+```python
+{
+    "submitted": 1.0 if submit_called else 0.0,
+    "submission_recorded": 1.0 if submit_passed else 0.0,
+    "lint_skipped": 1.0 if submitted_without_static_check else 0.0,
+}
+```
+
+`submission_recorded` is the participation signal in translation mode: the kernel was submitted and the tool returned `ok=true`. Correctness and speedup signals are absent until per-problem PyTorch wrappers land for level 5. The [tools page](tools.md#fetch_translation_problem) covers the current limitation in detail.
+
+Typical invocation:
+
+```bash
+POPCORN_LEVEL=5 POPCORN_PROBLEM_ID=1 \
+POPCORN_AGENT_MODEL=claude-sonnet-4-5 POPCORN_PERSONA=normal_translation \
+ensemble run popcorn.translate_problem --world popcorn
+```
+
 ## scenarios.toml matrix
 
 File: `popcorn_world/scenarios.toml`. The declarative form lets a sweep enumerate `(level, problem_id, persona, model)` cells without writing a Python scenario per cell. The loader at `ensemble.load_manifest(path)` parses the file and registers a scenario per top-level `[scenario.<name>]` entry into the global registry, so the same runner code drives both Python `@scenario` and TOML scenarios.

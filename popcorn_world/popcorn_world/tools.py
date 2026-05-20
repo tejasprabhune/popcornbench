@@ -51,7 +51,7 @@ from kernelbench.eval import (
     graceful_eval_cleanup,
 )
 from kernelbench.kernel_static_checker import validate_kernel_static
-from kernelbench.dataset import construct_kernelbench_dataset
+from kernelbench.dataset import construct_kernelbench_dataset, KERNEL_BENCH_PATH
 
 from .state import KernelRecord, PopcornState, ProblemRecord
 
@@ -192,6 +192,114 @@ def _make_fetch_problem(state: PopcornState) -> PluginTool:
     )
 
 
+# fetch_translation_problem
+
+def _resolve_translation_source(level: int, problem_id: int, source_arch: str) -> tuple[str, str]:
+    """Locate the source kernel for a translation problem.
+
+    Returns ``(source_text, filename)``. Files live at
+    ``KernelBench/level<level>/kernels/<source_arch>/<problem_id:02d>_*.cu``
+    or ``.cuh``. Raises FileNotFoundError if no match.
+    """
+    src_dir = os.path.join(KERNEL_BENCH_PATH, f"level{level}", "kernels", source_arch)
+    if not os.path.isdir(src_dir):
+        raise FileNotFoundError(
+            f"translation source dir not found: {src_dir}"
+        )
+    prefix = f"{problem_id:02d}_"
+    for name in sorted(os.listdir(src_dir)):
+        if name.startswith(prefix) and (name.endswith(".cu") or name.endswith(".cuh")):
+            with open(os.path.join(src_dir, name), encoding="utf-8") as f:
+                return f.read(), name
+    raise FileNotFoundError(
+        f"no .cu/.cuh under {src_dir} starts with {prefix!r}"
+    )
+
+
+def _make_fetch_translation_problem(state: PopcornState) -> PluginTool:
+    def fn(args_json: str) -> str:
+        args = json.loads(args_json) if args_json else {}
+        level = int(args.get("level", 5))
+        problem_id = int(args.get("problem_id"))
+        source_arch = str(args.get("source_arch", "a100")).lower()
+        target_arch = str(args.get("target_arch", "h100")).lower()
+        try:
+            src_text, src_name = _resolve_translation_source(level, problem_id, source_arch)
+        except FileNotFoundError as e:
+            return _payload(effect={
+                "ok": False,
+                "tool": "fetch_translation_problem",
+                "summary": f"fetch_translation_problem FAILED: {e}",
+            })
+        record = ProblemRecord(
+            level=level,
+            problem_id=problem_id,
+            name=src_name,
+            ref_arch_src="",  # no PyTorch reference for level-5 problems yet
+            source_kernel_src=src_text,
+            source_arch=source_arch,
+            target_arch=target_arch,
+            is_translation=True,
+        )
+        state.set_problem(record)
+        effect = {
+            "ok": True,
+            "tool": "fetch_translation_problem",
+            "level": level,
+            "problem_id": problem_id,
+            "name": src_name,
+            "source_arch": source_arch,
+            "target_arch": target_arch,
+            "source_kernel_chars": len(src_text),
+            "source_kernel_src": src_text,
+            "note": (
+                "no PyTorch reference is wired in for level-5 problems yet; "
+                "submit_kernel will record the submission and skip eval."
+            ),
+        }
+        diff = {
+            "field": "problem",
+            "old": None,
+            "new": {
+                "level": level,
+                "problem_id": problem_id,
+                "name": src_name,
+                "is_translation": True,
+                "source_arch": source_arch,
+                "target_arch": target_arch,
+            },
+        }
+        return _payload(effect=effect, diff=diff)
+
+    return PluginTool(
+        name="fetch_translation_problem",
+        description=(
+            "Load a hardware-translation problem: a CUDA kernel hand-tuned for "
+            "one GPU architecture (the source) that the agent must re-optimise "
+            "for another (the target). Reads the source `.cu`/`.cuh` from "
+            "KernelBench/level<L>/kernels/<source_arch>/. The current level-5 "
+            "set has paired A100 (Ampere) and H100 (Hopper) sources for "
+            "10 kernels (paged_attention, fused_rmsnorm, swiglu_activation, "
+            "rotary_embedding, custom_allreduce, marlin/machete int4_gemm, "
+            "int8/fp8 w8a8_gemm, flash_attn2/3). PyTorch reference modules for "
+            "automated correctness verification are not yet wired in; "
+            "submit_kernel records the submission and skips eval in translation "
+            "mode."
+        ),
+        parameters={
+            "type": "object",
+            "properties": {
+                "level": {"type": "integer", "minimum": 1, "default": 5},
+                "problem_id": {"type": "integer", "minimum": 1},
+                "source_arch": {"type": "string", "default": "a100"},
+                "target_arch": {"type": "string", "default": "h100"},
+            },
+            "required": ["problem_id"],
+        },
+        fn=fn,
+    )
+
+
 # compile_kernel
 
 def _make_compile_kernel(state: PopcornState) -> PluginTool:
@@ -271,6 +379,17 @@ def _make_run_correctness(state: PopcornState) -> PluginTool:
         args = json.loads(args_json) if args_json else {}
         kernel_code = args["kernel_code"]
         problem = state.require_problem()
+        if problem.is_translation:
+            return _payload(effect={
+                "ok": False,
+                "tool": "run_correctness",
+                "summary": (
+                    "run_correctness SKIPPED: no PyTorch reference is wired in "
+                    "for the current translation problem. Use compile_kernel to "
+                    "check the kernel builds; submit_kernel records the final "
+                    "submission without eval."
+                ),
+            })
         kernel_hash = state.kernel_hash(kernel_code)
         build_dir = _per_kernel_build_dir(state.build_dir, kernel_code)
         try:
@@ -452,6 +571,47 @@ def _make_submit_kernel(state: PopcornState) -> PluginTool:
         kernel_code = args["kernel_code"]
         problem = state.require_problem()
         kernel_hash = state.kernel_hash(kernel_code)
+        # Translation mode: no PyTorch reference yet, so we record the
+        # submission and skip eval. submit_called and submit_passed will
+        # both fire, but correctness/runtime/speedup are unknown until
+        # a per-problem PyTorch wrapper lands.
+        if problem.is_translation:
+            state.record(
+                kernel_hash,
+                submitted=True,
+                compiled=None,
+                correctness=None,
+                runtime_us=None,
+            )
+            effect = {
+                "ok": True,
+                "tool": "submit_kernel",
+                "summary": (
+                    "submit_kernel RECORDED (translation mode): the submission "
+                    "is saved; full eval against a PyTorch reference is not yet "
+                    "wired for this level."
+                ),
+                "runtime_us": None,
+                "excessive_speedup": False,
+            }
+            diff = {
+                "field": "kernel_submissions",
+                "old": None,
+                "new": {
+                    "kernel_hash": kernel_hash,
+                    "compiled": None,
+                    "correctness": None,
+                    "runtime_us": None,
+                    "ref_runtime_us": None,
+                    "speedup": None,
+                    "is_translation": True,
+                },
+            }
+            return _payload(
+                effect=effect,
+                diff=diff,
+                costs={"gpu_seconds": time.perf_counter() - t0},
+            )
         build_dir = _per_kernel_build_dir(state.build_dir, kernel_code)
         try:
             result: Optional[KernelExecResult] = _retry_eval_on_lock(
@@ -816,6 +976,7 @@ def build_all_tools(state: PopcornState) -> List[PluginTool]:
     """Return the full list of PluginTools bound to a fresh state."""
     return [
         _make_fetch_problem(state),
+        _make_fetch_translation_problem(state),
         _make_compile_kernel(state),
         _make_run_correctness(state),
         _make_get_gpu_specs(state),

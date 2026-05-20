@@ -60,6 +60,44 @@ spawn_agent(
 
 The wrapper lives at `popcorn_world/popcorn_world/tools.py:_make_fetch_problem`.
 
+## fetch_translation_problem
+
+Load a hardware-translation problem: a CUDA kernel hand-tuned for one GPU architecture that the agent re-optimises for another. Sets the world's problem in translation mode, so the kernel-evaluation tools below branch on `problem.is_translation`.
+
+Arguments:
+
+```json
+{
+  "level": 5,
+  "problem_id": 1,
+  "source_arch": "a100",
+  "target_arch": "h100"
+}
+```
+
+`level` defaults to 5; `problem_id` is the integer that prefixes the source filename (the `01` in `01_paged_attention_v1.cu`); `source_arch` and `target_arch` default to `a100` and `h100`. The loader reads `KernelBench/level<level>/kernels/<source_arch>/<problem_id:02d>_*.cu` (or `.cuh`) and returns it to the agent.
+
+Returns:
+
+```json
+{
+  "ok": true,
+  "tool": "fetch_translation_problem",
+  "level": 5,
+  "problem_id": 1,
+  "name": "01_paged_attention_v1.cu",
+  "source_arch": "a100",
+  "target_arch": "h100",
+  "source_kernel_chars": 8594,
+  "source_kernel_src": "<full .cu source>",
+  "note": "no PyTorch reference is wired in for level-5 problems yet; submit_kernel will record the submission and skip eval."
+}
+```
+
+State: writes a `ProblemRecord` with `is_translation=True`, `source_kernel_src` populated, `ref_arch_src` empty. Clears prior `KernelRecord` entries via `state.set_problem`. No costs, no GPU resource, not sandboxable.
+
+Eval limitation: the level-5 dataset under `KernelBench/level5/kernels/` ships paired A100 and H100 `.cu` sources for 10 kernels (paged attention v1/v2, fused RMSNorm, SwiGLU, rotary embedding, custom all-reduce, marlin/machete int4 GEMM, int8/fp8 w8a8 GEMM, Flash Attention 2/3) but no PyTorch reference modules. Until per-problem PyTorch wrappers land, `run_correctness` short-circuits and `submit_kernel` records the agent's submission without timing.
+
 ## compile_kernel
 
 Compile the kernel without running it. Use after writing or editing a kernel to catch syntax, linker, and CUDA-compilation errors before spending GPU time on correctness.
@@ -123,7 +161,7 @@ Returns on a correctness mismatch:
 }
 ```
 
-CUDA OOM is caught and reported as `summary: "run_correctness FAILED: CUDA out of memory."`. Build-lock contention that survives all retries reports `summary: "run_correctness FAILED: persistent build lock contention."`. Anything else propagates.
+CUDA OOM is caught and reported as `summary: "run_correctness FAILED: CUDA out of memory."`. Build-lock contention that survives all retries reports `summary: "run_correctness FAILED: persistent build lock contention."`. Anything else propagates. When the world's current problem was loaded by `fetch_translation_problem`, `run_correctness` short-circuits with `ok=false` and a note explaining that no PyTorch reference is available; this branch will go away once per-problem reference modules land for level 5.
 
 State: records `{compiled, correctness}` on the `KernelRecord`. Cost: `gpu_seconds`. Resources: `["gpu:<device_index>"]`. Sandboxable. No timeout, no progress. Reads `state.num_correct_trials`, `state.problem`, `state.device`, `state.backend`, `state.torch_precision`.
 
@@ -146,6 +184,8 @@ Returns on success:
 ```
 
 The `effect` deliberately omits the ref runtime and the speedup ratio. When the speedup against PyTorch crosses the `check_for_excessive_speedup` threshold, `effect.excessive_speedup` is `true` and the summary appends a flag line; the [predicates page](predicates.md#excessive_speedup_flagged) covers how the grader consumes it.
+
+When the world's current problem was loaded by `fetch_translation_problem`, `submit_kernel` records the submission with `ok=true` and a summary noting that eval was skipped; `runtime_us`, `ref_runtime_us`, and `speedup` are recorded as `None` rather than computed. This is the mode the level-5 translation scenario uses today.
 
 Held-out re-verification fires after a passing correctness check when `state.held_out_shape_seed` is set. The tool reruns correctness against the held-out seed and records the result on the kernel record under `held_out_correctness` (`True`, `False`, or `None` for "not checked"). The retry is best-effort: an exception during the retry does not surface to the agent and leaves `held_out_correctness` as `None`. The [predicates page](predicates.md#held_out_correctness_passed) covers how the grader scores it.
 

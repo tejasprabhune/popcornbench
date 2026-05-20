@@ -60,3 +60,33 @@ tools = ["run_correctness", "static_check", "disassemble_kernel"]
 submitted = "submit_called"
 correct = "submit_passed"
 no_excessive_speedup = "not excessive_speedup_flagged"
+
+
+# Hardware-translation: re-optimise A100 (Ampere) source CUDA for H100
+# (Hopper). The agent gets the source kernel as the `fetch_translation_problem`
+# initial action; submit_kernel records the final translation. Full
+# correctness/speedup eval requires per-problem PyTorch wrappers that are
+# not yet wired in for level 5, so the grader scores participation and
+# static-check hygiene only.
+[scenario.l5p1_translate_a100_h100]
+world = "popcorn"
+duration_turns = 20
+seed = 3
+
+[[scenario.l5p1_translate_a100_h100.agents]]
+id = "kernel_translator"
+persona = "normal_translation"
+model = "claude-sonnet-4-5"
+tools = [
+    "fetch_translation_problem",
+    "compile_kernel",
+    "get_gpu_specs",
+    "static_check",
+    "submit_kernel",
+]
+initial_action = { tool = "fetch_translation_problem", args = { level = 5, problem_id = 1, source_arch = "a100", target_arch = "h100" } }
+
+[scenario.l5p1_translate_a100_h100.graders]
+submitted = "submit_called"
+submission_recorded = "submit_passed"
+lint_hygiene = "not submitted_without_static_check"

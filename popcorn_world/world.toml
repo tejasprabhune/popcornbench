@@ -12,6 +12,12 @@ python_package = "popcorn_world"
 personas_dir = "personas"
 
 [[world.default_personas]]
+name = "normal"
+
+[[world.default_personas]]
+name = "normal_translation"
+
+[[world.default_personas]]
 name = "methodical_engineer"
 
 [[world.default_personas]]
@@ -22,6 +28,9 @@ name = "code_reviewer"
 
 [[world.default_tools]]
 name = "fetch_problem"
+
+[[world.default_tools]]
+name = "fetch_translation_problem"
 
 [[world.default_tools]]
 name = "compile_kernel"

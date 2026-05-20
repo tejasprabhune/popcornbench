@@ -45,12 +45,25 @@ class KernelRecord:
 
 @dataclass
 class ProblemRecord:
-    """The currently-loaded KernelBench problem."""
+    """The currently-loaded KernelBench problem.
+
+    ``ref_arch_src`` is the PyTorch reference source for the standard
+    write task (levels 1-4). For the level-5 translation task there is
+    no PyTorch reference yet; ``ref_arch_src`` is empty and
+    ``source_kernel_src`` carries the source GPU's CUDA source that the
+    agent re-optimises. ``is_translation`` lets the tools branch on
+    which mode they were loaded in without having to inspect the
+    sources directly.
+    """
 
     level: int
     problem_id: int
     name: str
-    ref_arch_src: str
+    ref_arch_src: str = ""
+    source_kernel_src: str = ""
+    source_arch: str = ""
+    target_arch: str = ""
+    is_translation: bool = False
 
 
 class PopcornState:
