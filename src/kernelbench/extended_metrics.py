@@ -123,7 +123,7 @@ def compute_kernel_launch_stats(
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# 3. SOL (Speed-of-Light) Score — via Nsight hardware counters
+# 3. SOL (Speed-of-Light) Score via Nsight hardware counters
 # ─────────────────────────────────────────────────────────────────────────────
 
 _WORKER_SCRIPT = os.path.join(
@@ -161,7 +161,7 @@ def profile_kernel_with_nsight(
         if not NSIGHT_AVAILABLE or not check_ncu_available():
             return None
 
-        from kernelbench.agent.nsight_parser import ROOFLINE_METRICS, parse_nsight_metrics
+        from kernelbench.nsight_parser import ROOFLINE_METRICS, parse_nsight_metrics
 
         request = {
             "custom_model_src": custom_model_src,
@@ -398,7 +398,7 @@ def compute_energy_stats(
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# 5. Roofline / Occupancy — from Nsight hardware counters
+# 5. Roofline / Occupancy from Nsight hardware counters
 # ─────────────────────────────────────────────────────────────────────────────
 
 def compute_roofline_stats_from_nsight(nsight_profile: dict) -> dict:
