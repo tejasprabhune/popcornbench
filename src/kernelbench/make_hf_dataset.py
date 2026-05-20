@@ -163,10 +163,10 @@ def make_dataset_examples(dir_path, level):
             dataset_list.append(json_object)
             # count += 1
 
-make_dataset_examples("../KernelBench/level1", 1)
-make_dataset_examples("../KernelBench/level2", 2)
-make_dataset_examples("../KernelBench/level3", 3)
-make_dataset_examples("../KernelBench/level4", 4)
+make_dataset_examples("../kernels/kernelbench/level1", 1)
+make_dataset_examples("../kernels/kernelbench/level2", 2)
+make_dataset_examples("../kernels/kernelbench/level3", 3)
+make_dataset_examples("../kernels/kernelbench/level4", 4)
 
 level_1 = [ex for ex in dataset_list if ex["level"] == 1]
 level_2 = [ex for ex in dataset_list if ex["level"] == 2]

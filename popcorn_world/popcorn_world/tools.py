@@ -51,7 +51,7 @@ from kernelbench.eval import (
     graceful_eval_cleanup,
 )
 from kernelbench.kernel_static_checker import validate_kernel_static
-from kernelbench.dataset import construct_kernelbench_dataset, KERNEL_BENCH_PATH
+from kernelbench.dataset import construct_kernelbench_dataset, GEN_TRANSLATION_PATH
 
 from .state import KernelRecord, PopcornState, ProblemRecord
 
@@ -194,14 +194,14 @@ def _make_fetch_problem(state: PopcornState) -> PluginTool:
 
 # fetch_translation_problem
 
-def _resolve_translation_source(level: int, problem_id: int, source_arch: str) -> tuple[str, str]:
+def _resolve_translation_source(problem_id: int, source_arch: str) -> tuple[str, str]:
     """Locate the source kernel for a translation problem.
 
     Returns ``(source_text, filename)``. Files live at
-    ``KernelBench/level<level>/kernels/<source_arch>/<problem_id:02d>_*.cu``
+    ``kernels/gen_translation/<source_arch>/<problem_id:02d>_*.cu``
     or ``.cuh``. Raises FileNotFoundError if no match.
     """
-    src_dir = os.path.join(KERNEL_BENCH_PATH, f"level{level}", "kernels", source_arch)
+    src_dir = os.path.join(GEN_TRANSLATION_PATH, source_arch)
     if not os.path.isdir(src_dir):
         raise FileNotFoundError(
             f"translation source dir not found: {src_dir}"
@@ -219,23 +219,25 @@ def _resolve_translation_source(level: int, problem_id: int, source_arch: str) -
 def _make_fetch_translation_problem(state: PopcornState) -> PluginTool:
     def fn(args_json: str) -> str:
         args = json.loads(args_json) if args_json else {}
-        level = int(args.get("level", 5))
         problem_id = int(args.get("problem_id"))
         source_arch = str(args.get("source_arch", "a100")).lower()
         target_arch = str(args.get("target_arch", "h100")).lower()
         try:
-            src_text, src_name = _resolve_translation_source(level, problem_id, source_arch)
+            src_text, src_name = _resolve_translation_source(problem_id, source_arch)
         except FileNotFoundError as e:
             return _payload(effect={
                 "ok": False,
                 "tool": "fetch_translation_problem",
                 "summary": f"fetch_translation_problem FAILED: {e}",
             })
+        # level=0 is the sentinel "translation, not KernelBench-level"
+        # since the gen_translation set is its own track rather than a
+        # level under KernelBench.
         record = ProblemRecord(
-            level=level,
+            level=0,
             problem_id=problem_id,
             name=src_name,
-            ref_arch_src="",  # no PyTorch reference for level-5 problems yet
+            ref_arch_src="",
             source_kernel_src=src_text,
             source_arch=source_arch,
             target_arch=target_arch,
@@ -245,7 +247,6 @@ def _make_fetch_translation_problem(state: PopcornState) -> PluginTool:
         effect = {
             "ok": True,
             "tool": "fetch_translation_problem",
-            "level": level,
             "problem_id": problem_id,
             "name": src_name,
             "source_arch": source_arch,
@@ -253,7 +254,7 @@ def _make_fetch_translation_problem(state: PopcornState) -> PluginTool:
             "source_kernel_chars": len(src_text),
             "source_kernel_src": src_text,
             "note": (
-                "no PyTorch reference is wired in for level-5 problems yet; "
+                "no PyTorch reference is wired in for gen_translation problems yet; "
                 "submit_kernel will record the submission and skip eval."
             ),
         }
@@ -261,7 +262,6 @@ def _make_fetch_translation_problem(state: PopcornState) -> PluginTool:
             "field": "problem",
             "old": None,
             "new": {
-                "level": level,
                 "problem_id": problem_id,
                 "name": src_name,
                 "is_translation": True,
@@ -277,9 +277,9 @@ def _make_fetch_translation_problem(state: PopcornState) -> PluginTool:
             "Load a hardware-translation problem: a CUDA kernel hand-tuned for "
             "one GPU architecture (the source) that the agent must re-optimise "
             "for another (the target). Reads the source `.cu`/`.cuh` from "
-            "KernelBench/level<L>/kernels/<source_arch>/. The current level-5 "
-            "set has paired A100 (Ampere) and H100 (Hopper) sources for "
-            "10 kernels (paged_attention, fused_rmsnorm, swiglu_activation, "
+            "kernels/gen_translation/<source_arch>/. The current set has "
+            "paired A100 (Ampere) and H100 (Hopper) sources for 10 kernels "
+            "(paged_attention, fused_rmsnorm, swiglu_activation, "
             "rotary_embedding, custom_allreduce, marlin/machete int4_gemm, "
             "int8/fp8 w8a8_gemm, flash_attn2/3). PyTorch reference modules for "
             "automated correctness verification are not yet wired in; "
@@ -289,7 +289,6 @@ def _make_fetch_translation_problem(state: PopcornState) -> PluginTool:
         parameters={
             "type": "object",
             "properties": {
-                "level": {"type": "integer", "minimum": 1, "default": 5},
                 "problem_id": {"type": "integer", "minimum": 1},
                 "source_arch": {"type": "string", "default": "a100"},
                 "target_arch": {"type": "string", "default": "h100"},

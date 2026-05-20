@@ -66,7 +66,7 @@ Read inside the scenario functions. Changing these between runs is the supported
 
 `POPCORN_TOOLS` (comma-separated string, default empty): tool restriction for `popcorn.single_problem` and `popcorn.translate_problem`. Empty means use the scenario's default tool set; non-empty replaces it with the listed names. Use this to add the profiling tools (`POPCORN_TOOLS=fetch_problem,compile_kernel,...,profile_kernel,disassemble_kernel`) without editing the scenario. `popcorn.judge_review` does not read this var; its tool sets are hardcoded.
 
-`POPCORN_SOURCE_ARCH` (string, default `"a100"`) and `POPCORN_TARGET_ARCH` (string, default `"h100"`): source and target GPU architectures for `popcorn.translate_problem`. Picks the subdirectory under `KernelBench/level<level>/kernels/` that `fetch_translation_problem` reads. The current dataset ships A100 and H100 only; adding a new pair means dropping matching subdirectories into the dataset and pointing the env vars at them.
+`POPCORN_SOURCE_ARCH` (string, default `"a100"`) and `POPCORN_TARGET_ARCH` (string, default `"h100"`): source and target GPU architectures for `popcorn.translate_problem`. Picks the subdirectory under `kernels/gen_translation/` that `fetch_translation_problem` reads. The current dataset ships A100 and H100 only; adding a new pair means dropping matching subdirectories into the dataset and pointing the env vars at them.
 
 ## Ensemble paths
 

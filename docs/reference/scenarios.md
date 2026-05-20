@@ -73,11 +73,11 @@ ensemble run popcorn.judge_review --world popcorn
 
 File: `popcorn_world/scenarios/translate_problem.py`. World: `popcorn`. One agent against one hardware-translation problem (the level-5 task: re-optimise an A100 source kernel for H100).
 
-The scenario spawns a single `kernel_translator` agent (default persona `normal_translation`), kicks off `fetch_translation_problem` as the initial action (defaulting to `level=5`, `problem_id=1`, `source_arch="a100"`, `target_arch="h100"`), and yields the same `world.turn_count > POPCORN_MAX_TURNS` until predicate as the other scenarios. The agent's default tool set is `fetch_translation_problem`, `compile_kernel`, `get_gpu_specs`, `static_check`, and `submit_kernel`. `run_correctness` is left out of the default set because the level-5 problems have no PyTorch reference; including it returns a short-circuit message.
+The scenario spawns a single `kernel_translator` agent (default persona `normal_translation`), kicks off `fetch_translation_problem` as the initial action (defaulting to `problem_id=1`, `source_arch="a100"`, `target_arch="h100"`), and yields the same `world.turn_count > POPCORN_MAX_TURNS` until predicate as the other scenarios. The agent's default tool set is `fetch_translation_problem`, `compile_kernel`, `get_gpu_specs`, `static_check`, and `submit_kernel`. `run_correctness` is left out of the default set because the gen_translation problems have no PyTorch reference; including it returns a short-circuit message.
 
 Env vars (defaults in parentheses):
 
-- `POPCORN_LEVEL` (5), `POPCORN_PROBLEM_ID` (1): the translation problem.
+- `POPCORN_PROBLEM_ID` (1): the translation problem id (the integer that prefixes the source filename under `kernels/gen_translation/<source_arch>/`).
 - `POPCORN_SOURCE_ARCH` ("a100"), `POPCORN_TARGET_ARCH` ("h100"): source and target GPU architectures. The current dataset only has A100 and H100, but the arg signatures are open so new pairs (Hopper to Blackwell, RDNA3 to RDNA4) can land without scenario changes.
 - `POPCORN_PERSONA` ("normal_translation"): the persona that resolves through the world's `personas_dir`. Set to a translation-flavoured intervention persona once any land.
 - `POPCORN_AGENT_MODEL` ("claude-sonnet-4-5"): the LLM behind the agent.
@@ -93,12 +93,12 @@ Graders returned:
 }
 ```
 
-`submission_recorded` is the participation signal in translation mode: the kernel was submitted and the tool returned `ok=true`. Correctness and speedup signals are absent until per-problem PyTorch wrappers land for level 5. The [tools page](tools.md#fetch_translation_problem) covers the current limitation in detail.
+`submission_recorded` is the participation signal in translation mode: the kernel was submitted and the tool returned `ok=true`. Correctness and speedup signals are absent until per-problem PyTorch wrappers land for the gen_translation set. The [tools page](tools.md#fetch_translation_problem) covers the current limitation in detail.
 
 Typical invocation:
 
 ```bash
-POPCORN_LEVEL=5 POPCORN_PROBLEM_ID=1 \
+POPCORN_PROBLEM_ID=1 \
 POPCORN_AGENT_MODEL=claude-sonnet-4-5 POPCORN_PERSONA=normal_translation \
 ensemble run popcorn.translate_problem --world popcorn
 ```

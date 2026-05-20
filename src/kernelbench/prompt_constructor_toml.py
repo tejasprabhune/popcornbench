@@ -684,7 +684,7 @@ def test_prompt():
     generation. Customize the reference architecture or custom_prompt_key
     if you want to try different inputs.
     """
-    ref_arch_src = read_file(os.path.join(REPO_TOP_PATH, "KernelBench", "level1", "1_Square_matrix_multiplication_.py"))
+    ref_arch_src = read_file(os.path.join(REPO_TOP_PATH, "kernels", "kernelbench", "level1", "1_Square_matrix_multiplication_.py"))
     assert len(ref_arch_src) > 0, "ref_arch_src is empty"   
 
     print("Testing prompt construction...")

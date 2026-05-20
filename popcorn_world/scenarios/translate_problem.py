@@ -38,7 +38,6 @@ def _log_agent_prompt(world, agent_id: str, persona_name: str, model: str) -> No
 
 @scenario("popcorn.translate_problem", world="popcorn")
 async def translate_problem(world):
-    level = int(os.environ.get("POPCORN_LEVEL", "5"))
     problem_id = int(os.environ.get("POPCORN_PROBLEM_ID", "1"))
     source_arch = os.environ.get("POPCORN_SOURCE_ARCH", "a100")
     target_arch = os.environ.get("POPCORN_TARGET_ARCH", "h100")
@@ -64,7 +63,6 @@ async def translate_problem(world):
     _log_agent_prompt(world, "kernel_translator", persona_name, model)
     agent.act(
         "fetch_translation_problem",
-        level=level,
         problem_id=problem_id,
         source_arch=source_arch,
         target_arch=target_arch,

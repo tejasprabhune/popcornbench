@@ -48,17 +48,18 @@ That writes `traces/popcorn.single_problem.jsonl` and prints a JSON line with th
 
 ## Organization
 
-The benchmark is laid out across five levels that test progressively harder targets.
+Tasks live under `kernels/`, split by category. Each category is its own subdirectory with its own conventions.
 
-Level 1 is 100 single-operator problems: matrix multiplication variants, convolutions, activations, reductions, normalisation. The agent writes a CUDA kernel that replaces one PyTorch operator. This is where most published baselines run.
+`kernels/kernelbench/` is the upstream KernelBench problem set with the PyTorch reference write task. Four levels, each of which is what the existing literature benchmarks against:
 
-Level 2 is 100 fused-operator problems: `Conv2D_ReLU_BiasAdd`, `ConvTranspose2d_MaxPool_Hardtanh_Mean_Tanh`, and similar compositions. The agent writes a kernel that fuses the sequence so the intermediate tensors stay in registers or shared memory.
+- `level1/` is 100 single-operator problems: matrix multiplication variants, convolutions, activations, reductions, normalisation. The agent writes a CUDA kernel that replaces one PyTorch operator. Most published baselines run here.
+- `level2/` is 100 fused-operator problems: `Conv2D_ReLU_BiasAdd`, `ConvTranspose2d_MaxPool_Hardtanh_Mean_Tanh`, and similar compositions. The agent writes a kernel that fuses the sequence so intermediate tensors stay in registers or shared memory.
+- `level3/` is 50 full-model problems: `MLP`, `ResNet101`, `VGG16`. The agent writes a kernel (or a small library of kernels) that runs the whole model end to end.
+- `level4/` is 20 transformer benchmarks: real Hugging Face model identifiers at fixed batch and sequence sizes (`EleutherAI-gpt-neo-2p7B_bs32_seq256`, `gpt2_bs1_seq1023`, and so on). The reference is a transformer forward pass; the agent is expected to fuse attention, normalisation, and feed-forward layers.
 
-Level 3 is 50 full-model problems: `MLP`, `ResNet101`, `VGG16`. The agent writes a kernel (or a small library of kernels) that runs the whole model end to end. The reference is the PyTorch model class.
+`kernels/gen_translation/` is the generation-translation task. The agent gets a CUDA kernel hand-tuned for one GPU architecture and re-optimises it for another. The current set has paired A100 (Ampere) and H100 (Hopper) sources for 10 production kernels (paged attention v1/v2, fused RMSNorm, SwiGLU, rotary embedding, custom all-reduce, marlin/machete int4 GEMM, int8/fp8 w8a8 GEMM, FlashAttention 2/3). The agent-side affordance is `popcorn.translate_problem` (the scenario) and `fetch_translation_problem` (the tool that reads the source `.cu`/`.cuh`). Automated correctness verification still depends on per-problem PyTorch wrappers that have not yet landed; in the meantime `submit_kernel` records the submission and skips eval, and the grader scores participation plus static-check hygiene. See [docs/reference/scenarios.md](docs/reference/scenarios.md#popcorntranslate_problem) for the full surface.
 
-Level 4 is 20 transformer benchmarks: real Hugging Face model identifiers at fixed batch and sequence sizes (`EleutherAI-gpt-neo-2p7B_bs32_seq256`, `gpt2_bs1_seq1023`, and so on). The reference is a transformer forward pass; the agent is expected to fuse attention, normalisation, and feed-forward layers.
-
-Level 5 is the hardware translation task. The agent gets an A100-tuned CUDA source file (paged attention, Flash Attention 2, Marlin INT4 GEMM, SwiGLU, fused RMSNorm) and re-optimises it for H100. Paired source kernels live under `KernelBench/level5/kernels/a100/` and `KernelBench/level5/kernels/h100/`. The agent-side affordance lives in `popcorn.translate_problem` (the scenario) and `fetch_translation_problem` (the tool that reads the source `.cu`/`.cuh` into the agent's context). Automated correctness verification still depends on per-problem PyTorch wrappers that have not yet landed; in the meantime `submit_kernel` records the submission and skips eval, and the grader scores participation plus static-check hygiene. See [docs/reference/scenarios.md](docs/reference/scenarios.md#popcorntranslate_problem) for the full surface.
+`kernels/domains/` is a stub for domain-specific operators outside the KernelBench scope (bio, physics, signal processing). It is empty in the current release; adding a domain is a matter of dropping `.py` files under `domains/<name>/` and pointing the dataset constructor at them.
 
 ## Running a single problem
 

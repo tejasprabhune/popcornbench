@@ -68,14 +68,13 @@ Arguments:
 
 ```json
 {
-  "level": 5,
   "problem_id": 1,
   "source_arch": "a100",
   "target_arch": "h100"
 }
 ```
 
-`level` defaults to 5; `problem_id` is the integer that prefixes the source filename (the `01` in `01_paged_attention_v1.cu`); `source_arch` and `target_arch` default to `a100` and `h100`. The loader reads `KernelBench/level<level>/kernels/<source_arch>/<problem_id:02d>_*.cu` (or `.cuh`) and returns it to the agent.
+`problem_id` is the integer that prefixes the source filename (the `01` in `01_paged_attention_v1.cu`); `source_arch` and `target_arch` default to `a100` and `h100`. The loader reads `kernels/gen_translation/<source_arch>/<problem_id:02d>_*.cu` (or `.cuh`) and returns it to the agent.
 
 Returns:
 
@@ -83,7 +82,6 @@ Returns:
 {
   "ok": true,
   "tool": "fetch_translation_problem",
-  "level": 5,
   "problem_id": 1,
   "name": "01_paged_attention_v1.cu",
   "source_arch": "a100",
@@ -96,7 +94,7 @@ Returns:
 
 State: writes a `ProblemRecord` with `is_translation=True`, `source_kernel_src` populated, `ref_arch_src` empty. Clears prior `KernelRecord` entries via `state.set_problem`. No costs, no GPU resource, not sandboxable.
 
-Eval limitation: the level-5 dataset under `KernelBench/level5/kernels/` ships paired A100 and H100 `.cu` sources for 10 kernels (paged attention v1/v2, fused RMSNorm, SwiGLU, rotary embedding, custom all-reduce, marlin/machete int4 GEMM, int8/fp8 w8a8 GEMM, Flash Attention 2/3) but no PyTorch reference modules. Until per-problem PyTorch wrappers land, `run_correctness` short-circuits and `submit_kernel` records the agent's submission without timing.
+Eval limitation: the dataset under `kernels/gen_translation/` ships paired A100 and H100 `.cu` sources for 10 kernels (paged attention v1/v2, fused RMSNorm, SwiGLU, rotary embedding, custom all-reduce, marlin/machete int4 GEMM, int8/fp8 w8a8 GEMM, Flash Attention 2/3) but no PyTorch reference modules. Until per-problem PyTorch wrappers land, `run_correctness` short-circuits and `submit_kernel` records the agent's submission without timing.
 
 ## compile_kernel
 
