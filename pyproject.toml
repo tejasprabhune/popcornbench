@@ -2,19 +2,15 @@
 requires = ["setuptools>=61.0"]
 build-backend = "setuptools.build_meta"
 
-# this should be our single source of truth for versioning
-
 [project]
 name = "popcornbench"
-version = "0.2.0.dev0"
+version = "0.3.0.dev0"
 requires-python = "==3.10.*"
+description = "KernelBench fork driven by ensemble. Library + popcorn_world."
 dependencies = [
-    # Frameworks
     "torch>=2.9.0",
     "transformers",
     "datasets>=2.19.0",
-    "modal",
-    # helper
     "tqdm",
     "packaging",
     "setuptools",
@@ -22,11 +18,9 @@ dependencies = [
     "ninja",
     "tomli",
     "tabulate",
-    # Numerics
     "einops",
     "python-dotenv",
     "numpy",
-    # LLM providers
     "openai",
     "litellm[proxy]",
     "gpn",
@@ -34,7 +28,6 @@ dependencies = [
 
 [project.optional-dependencies]
 gpu = [
-    # GPU-specific dependencies (requires CUDA)
     "triton",
     "nvidia-cutlass-dsl",
     "tilelang",
@@ -52,6 +45,9 @@ environments = [
     "sys_platform == 'linux' and platform_machine == 'x86_64'",
 ]
 
+[tool.uv.workspace]
+members = ["popcorn_world"]
+
 [tool.setuptools.packages.find]
 where = ["src"]
 include = ["kernelbench*"]
@@ -66,6 +62,9 @@ torch = [
   { index = "pytorch-cuda", marker = "sys_platform == 'linux' or sys_platform == 'win32'" },
 ]
 gpn = { git = "https://github.com/songlab-cal/gpn.git" }
+# popcorn_world lives in this repo; the world plugin imports ensemble,
+# which the user installs from their local ensemble checkout.
+popcorn-world = { workspace = true }
 
 [tool.setuptools.package-data]
 kernelbench = ["prompts/**/*"]
@@ -74,4 +73,3 @@ kernelbench = ["prompts/**/*"]
 dev = [
     "ipykernel>=7.2.0",
 ]
-

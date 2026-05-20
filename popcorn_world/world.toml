@@ -1,0 +1,49 @@
+# popcorn_world manifest. ensemble's worlds registry reads this when a
+# scenario constructs World("popcorn") so it knows where the python
+# package lives and which personas and tools to expose by default.
+#
+# popcorn_world is python-only. Unlike plank there is no rust crate;
+# state and tools live in the popcorn_world python package and call
+# down into kernelbench.eval directly.
+
+[world]
+name = "popcorn"
+python_package = "popcorn_world"
+personas_dir = "personas"
+
+[[world.default_personas]]
+name = "methodical_engineer"
+
+[[world.default_personas]]
+name = "speed_obsessed"
+
+[[world.default_personas]]
+name = "code_reviewer"
+
+[[world.default_tools]]
+name = "fetch_problem"
+
+[[world.default_tools]]
+name = "compile_kernel"
+
+[[world.default_tools]]
+name = "run_correctness"
+
+[[world.default_tools]]
+name = "get_gpu_specs"
+
+[[world.default_tools]]
+name = "static_check"
+
+[[world.default_tools]]
+name = "submit_kernel"
+
+# Opt-in tools (require ncu, cuobjdump, etc. on the box).
+[[world.default_tools]]
+name = "profile_kernel"
+
+[[world.default_tools]]
+name = "disassemble_kernel"
+
+[[world.default_tools]]
+name = "ert_roofline"
