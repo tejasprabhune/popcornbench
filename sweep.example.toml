@@ -1,0 +1,27 @@
+# Example sweep config. Copy this to a project-local file (sweep.toml,
+# sweep.smoke.toml, sweep.full.toml) and edit. The runner is invoked
+# with `uv run python scripts/run_sweep.py --config sweep.toml`.
+
+[sweep]
+name = "smoke_l1"
+scenario = "popcorn.single_problem"
+results_root = "traces"
+
+[sweep.matrix]
+levels = [1]
+problem_ids = [1, 5, 19]
+models = ["claude-haiku-4-5", "claude-sonnet-4-5"]
+personas = ["normal", "methodical_engineer"]
+seeds = [42]
+
+[sweep.budget]
+max_turns = 20
+gpu_seconds = 600
+
+[sweep.run]
+concurrency = 1
+resume = true
+
+[sweep.run.extra_env]
+POPCORN_BACKEND = "cuda"
+POPCORN_PRECISION = "fp32"
