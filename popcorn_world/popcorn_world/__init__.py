@@ -68,6 +68,26 @@ def _setup():
             pass
     tools = build_all_tools(state)
     predicates = build_predicates(state)
+
+    # Subprocess sandbox for the heavy GPU tools. When the kernel
+    # being evaluated trips a CUDA-context-fatal error (illegal memory
+    # access, misaligned address, etc.) the torch process is poisoned
+    # for the rest of the run; the sandbox isolates that to a fresh
+    # worker so only the bad call fails. Off by default because the
+    # worker re-imports popcorn_world from scratch and so loses any
+    # state the parent loaded (e.g. the result of fetch_problem). To
+    # turn it on, the scenario also needs to pass the problem
+    # reference through the args of every sandboxed tool. Track that
+    # rework before flipping POPCORN_SANDBOX_GPU_TOOLS to true.
+    sandbox_targets = {"compile_kernel", "run_correctness", "submit_kernel",
+                       "profile_kernel", "disassemble_kernel"}
+    use_sandbox = _env_bool("POPCORN_SANDBOX_GPU_TOOLS", False)
+    if use_sandbox:
+        for t in tools:
+            if t.name in sandbox_targets:
+                t.sandbox = True
+                t.sandbox_world = "popcorn"
+
     return tools, predicates
 
 

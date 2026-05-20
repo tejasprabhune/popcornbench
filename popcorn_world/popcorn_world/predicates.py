@@ -98,6 +98,21 @@ def build_predicates(state: PopcornState) -> List[PluginPredicate]:
                     return True
         return False
 
+    def held_out_correctness_passed(trace_json, args_json):
+        # Source of truth is the in-memory state ledger, not the trace,
+        # because the held-out result is deliberately not surfaced to
+        # the agent. The grader still gets to read it.
+        return any(
+            r.submitted and r.held_out_correctness
+            for r in state.all_records()
+        )
+
+    def held_out_correctness_failed(trace_json, args_json):
+        return any(
+            r.submitted and r.held_out_correctness is False
+            for r in state.all_records()
+        )
+
     return [
         PluginPredicate(name="submit_called", fn=submit_called),
         PluginPredicate(name="submit_passed", fn=submit_passed),
@@ -105,4 +120,6 @@ def build_predicates(state: PopcornState) -> List[PluginPredicate]:
         PluginPredicate(name="static_check_failed", fn=static_check_failed),
         PluginPredicate(name="excessive_speedup_flagged", fn=excessive_speedup_flagged),
         PluginPredicate(name="submitted_without_static_check", fn=submitted_without_static_check),
+        PluginPredicate(name="held_out_correctness_passed", fn=held_out_correctness_passed),
+        PluginPredicate(name="held_out_correctness_failed", fn=held_out_correctness_failed),
     ]

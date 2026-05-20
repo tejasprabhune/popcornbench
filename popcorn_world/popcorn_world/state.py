@@ -36,6 +36,10 @@ class KernelRecord:
     runtime_us: Optional[float] = None
     excessive_speedup: bool = False
     static_check_passed: Optional[bool] = None
+    # Result of a post-submission correctness retry with a held-out
+    # seed the agent never observed. None means "not checked", True
+    # means matched the reference, False means did not.
+    held_out_correctness: Optional[bool] = None
 
 
 @dataclass

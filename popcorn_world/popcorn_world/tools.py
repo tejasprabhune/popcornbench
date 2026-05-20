@@ -489,6 +489,38 @@ def _make_submit_kernel(state: PopcornState) -> PluginTool:
         correctness = bool(result and result.correctness)
         runtime = float(result.runtime) if result and result.runtime > 0 else None
         excessive = bool(result and result.metadata.get("excessive_speedup"))
+        # Held-out re-verification: rerun correctness against a seed
+        # the agent never saw, so a kernel that overfits to the
+        # default seed (memoizes the output for that exact tensor)
+        # gets caught. The model is told only the original
+        # correctness result.
+        held_out = None
+        if correctness and state.held_out_shape_seed is not None:
+            try:
+                held_out_result = _retry_eval_on_lock(
+                    lambda: eval_kernel_against_ref(
+                        original_model_src=problem.ref_arch_src,
+                        custom_model_src=kernel_code,
+                        seed_num=state.held_out_shape_seed,
+                        num_correct_trials=max(state.num_correct_trials, 3),
+                        num_perf_trials=0,
+                        measure_performance=False,
+                        verbose=state.verbose,
+                        build_dir=build_dir,
+                        device=state.device,
+                        backend=state.backend,
+                        precision=state.torch_precision,
+                        check_for_excessive_speedup=False,
+                    ),
+                    build_dir=build_dir,
+                )
+                if held_out_result is not None and held_out_result.correctness:
+                    held_out = True
+                elif held_out_result is not None:
+                    held_out = False
+            except BaseException:
+                # Held-out retry is best-effort; do not propagate.
+                held_out = None
         state.record(
             kernel_hash,
             compiled=compiled,
@@ -496,6 +528,7 @@ def _make_submit_kernel(state: PopcornState) -> PluginTool:
             submitted=True,
             runtime_us=runtime,
             excessive_speedup=excessive,
+            held_out_correctness=held_out,
         )
 
         if result is None:
