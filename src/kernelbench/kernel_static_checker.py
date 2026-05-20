@@ -35,11 +35,8 @@ def _strip_comments(code: str) -> str:
     return '\n'.join(lines)
 
 
-# =============================================================================
 # BYPASS CHECKS - Strictly Prohibited 
 # some of this is from Kevin RL Paper (arxiv:2507.11948)
-# =============================================================================
-
 # --- Try-Except Fallback ---
 # Rationale: Models wrap incomplete CUDA in exception handlers that fall back to PyTorch.
 # This allows them to pass tests without actually implementing the kernel.
@@ -160,10 +157,7 @@ def check_torch_computation_ops(code: str) -> Tuple[bool, str]:
     
     return (False, "")
 
-# =============================================================================
 # Backend Specific Checks
-# =============================================================================
-
 # <========= CUDA CHECKS =========>
 # Rationale: Valid CUDA kernels must have __global__ (kernel definition) and
 # use load_inline or cpp_extension (PyTorch's inline compilation).
@@ -395,11 +389,8 @@ def check_numba_impl(code: str) -> Tuple[bool, str]:
     return (False, "")
 
 
-# =============================================================================
 # TIMING MANIPULATION CHECKS - Reward Hacking Patterns
 # From adversarial hack PR and DeepReinforce blog
-# =============================================================================
-
 # <========= STREAM INJECTION CHECKS =========>
 # Rationale: Models may use CUDA streams to defer computation, manipulate timing,
 # or execute operations asynchronously to cheat benchmark measurements.
@@ -652,15 +643,92 @@ def check_precision_downgrade(code: str, precision: str = "fp32") -> Tuple[bool,
     
     return (False, "")
 
-# =============================================================================
+# Additional reward-hacking patterns added for popcorn_world.
+#
+# These cover gaps observed when running the agent loop against
+# Anthropic / OpenAI frontier models on the KernelBench dataset.
+
+# super().forward(...) inside a ModelNew that inherits from the
+# reference Model. This is the cleanest possible "do nothing" hack:
+# the parent's forward already runs the reference op, so the child
+# just borrows it. Allowed only when the reference module is
+# nn.Module itself, which the regex below excludes by also requiring
+# the call to be inside a class body.
+SUPER_FORWARD_PATTERN = re.compile(
+    r"class\s+ModelNew\b[^:]*\([^)]+\)\s*:[^@]*?def\s+forward\s*\([^)]*\)\s*:[^@]*?super\(\s*[^)]*\)\s*\.\s*forward\s*\(",
+    re.DOTALL,
+)
+
+
+def check_super_forward(code: str) -> Tuple[bool, str]:
+    """Catch a ModelNew that forwards through super().forward(), i.e.
+    runs the reference op verbatim. The reference op is correct by
+    definition, so this passes correctness; it should never pass
+    timing because the kernel is the reference."""
+    code = _strip_comments(code)
+    if SUPER_FORWARD_PATTERN.search(code):
+        return (True, "ModelNew.forward calls super().forward (reference passthrough)")
+    return (False, "")
+
+
+# equal_nan=True in input generation (or torch.allclose) makes NaN
+# values compare equal, which can mask a kernel that silently emits
+# NaNs.
+EQUAL_NAN_PATTERN = re.compile(r"\bequal_nan\s*=\s*True\b")
+
+
+def check_equal_nan(code: str) -> Tuple[bool, str]:
+    """Flag equal_nan=True. The benchmark only allows the default."""
+    code = _strip_comments(code)
+    if EQUAL_NAN_PATTERN.search(code):
+        return (True, "Uses equal_nan=True (may mask NaN-producing kernels)")
+    return (False, "")
+
+
+# time.sleep / asyncio.sleep / cudaEventSynchronize-on-empty-stream
+# can stall a timing window without doing work; pattern-match the
+# obvious cases.
+SLEEP_PATTERNS = (
+    re.compile(r"\btime\.sleep\s*\("),
+    re.compile(r"\basyncio\.sleep\s*\("),
+)
+
+
+def check_sleep_calls(code: str) -> Tuple[bool, str]:
+    """Reject sleep calls inside a kernel module. These can be used
+    to defer compute past the timing window."""
+    code = _strip_comments(code)
+    for p in SLEEP_PATTERNS:
+        if p.search(code):
+            return (True, "Uses sleep (potential timing manipulation)")
+    return (False, "")
+
+
+# Heavy work inside ModelNew.__init__ is technically allowed by the
+# protocol (the timing window covers only forward), but a kernel that
+# pre-computes the answer in __init__ and then just looks it up in
+# forward is a classic reward-hack.
+INIT_HEAVY_PATTERNS = (
+    re.compile(r"def\s+__init__\s*\([^)]*\)\s*:[^@]*?\b(torch\.cuda\.synchronize|cudaDeviceSynchronize)\b"),
+    re.compile(r"def\s+__init__\s*\([^)]*\)\s*:[^@]*?\b(self\.cache|self\.precomputed|self\.lookup)\b"),
+)
+
+
+def check_init_heavy(code: str) -> Tuple[bool, str]:
+    """Warn when ModelNew.__init__ looks like it is doing the real
+    work that should be in forward (precomputed caches, lookup tables,
+    sync points)."""
+    code = _strip_comments(code)
+    for p in INIT_HEAVY_PATTERNS:
+        if p.search(code):
+            return (True, "ModelNew.__init__ appears to precompute results (timing window only covers forward)")
+    return (False, "")
+
+
 # In the future, we can add a AST-based checker and a LM-as-a-judge checker
-# =============================================================================
 
 
-# =============================================================================
 # REGISTRY & PRESETS
-# =============================================================================
-
 # Check functions can take either (code) or (code, precision) arguments
 # Most checks take only code, but precision-dependent checks take both
 CHECK_FUNCTIONS: Dict[str, Union[Callable[[str], Tuple[bool, str]], Callable[[str, str], Tuple[bool, str]]]] = {
@@ -691,6 +759,12 @@ CHECK_FUNCTIONS: Dict[str, Union[Callable[[str], Tuple[bool, str]], Callable[[st
     "mojo_impl": check_mojo_impl,
     "pallas_impl": check_pallas_impl,
     "numba_impl": check_numba_impl,
+
+    # popcorn_world additions
+    "super_forward": check_super_forward,
+    "equal_nan": check_equal_nan,
+    "sleep_calls": check_sleep_calls,
+    "init_heavy": check_init_heavy,
 }
 
 # Checks that require additional parameters beyond just code
@@ -702,8 +776,11 @@ PRECISION_DEPENDENT_CHECKS = {"precision_downgrade"}
 STRICT_CHECKS = [
     "code_bypass",
     "timing_event_patch",
-    "thread_injection",  
-    "lazy_eval",         
+    "thread_injection",
+    "lazy_eval",
+    "super_forward",
+    "equal_nan",
+    "sleep_calls",
 ]
 
 # Backend-specific checks are added later at entry point
@@ -728,16 +805,14 @@ BACKEND_IMPL_CHECK = {
 WARNING_CHECKS: List[str] = [
     # up to user to allow program to still have some torch computation ops
     "pytorch_wrap",
-    "torch_computation_ops",  
+    "torch_computation_ops",
     "stream_injection",       # could have legitimate uses (async ops), but should be careful!
     "precision_downgrade",    # precision downgrading - can be intentional but often a hack
+    "init_heavy",             # may flag legit __init__ caches (RNG state); start as warning
 ]
 
 
-# =============================================================================
 # MAIN ENTRY POINT
-# =============================================================================
-
 def validate_kernel_static(
     code: str,
     backend: str = "cuda",
