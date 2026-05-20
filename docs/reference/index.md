@@ -4,6 +4,8 @@ This section is the contract documentation for PopcornBench. Each page reads in 
 
 The pages below mirror the major surfaces of `popcorn_world`, plus two operational pages (env vars, sweep configuration) that pull together settings scattered across code.
 
+The shortest path through the reference is to read the [scenarios](scenarios.md) page first to see how a run is shaped, the [env vars](env-vars.md) page to see how it is parameterised, and then [tools](tools.md) plus [predicates](predicates.md) for the surface the agent actually touches and the surface the grader reads back. [Personas](personas.md) and [sweep config](sweep-config.md) are the experimental-design layer on top.
+
 ## [Tools](tools.md)
 
 Every tool registered by `popcorn_world`. Per tool: argument schema with types and defaults, return shape, what world state the tool reads or mutates, whether it accrues `gpu_seconds`, whether it declares a GPU resource lock, whether it emits progress, and what timeout it carries. The pages are grouped by what the tool does: problem access (`fetch_problem`), evaluation (`compile_kernel`, `run_correctness`, `submit_kernel`), introspection (`static_check`, `profile_kernel`, `disassemble_kernel`, `ert_roofline`, `get_gpu_specs`). Each tool has a worked example drawn from a real scenario.
