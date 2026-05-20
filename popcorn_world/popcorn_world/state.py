@@ -34,6 +34,7 @@ class KernelRecord:
     correctness: Optional[bool] = None
     submitted: bool = False
     runtime_us: Optional[float] = None
+    ref_runtime_us: Optional[float] = None
     excessive_speedup: bool = False
     static_check_passed: Optional[bool] = None
     # Result of a post-submission correctness retry with a held-out

@@ -488,6 +488,11 @@ def _make_submit_kernel(state: PopcornState) -> PluginTool:
         compiled = bool(result and result.compiled)
         correctness = bool(result and result.correctness)
         runtime = float(result.runtime) if result and result.runtime > 0 else None
+        ref_runtime = (
+            float(result.ref_runtime)
+            if result and getattr(result, "ref_runtime", 0) and result.ref_runtime > 0
+            else None
+        )
         excessive = bool(result and result.metadata.get("excessive_speedup"))
         # Held-out re-verification: rerun correctness against a seed
         # the agent never saw, so a kernel that overfits to the
@@ -527,6 +532,7 @@ def _make_submit_kernel(state: PopcornState) -> PluginTool:
             correctness=correctness,
             submitted=True,
             runtime_us=runtime,
+            ref_runtime_us=ref_runtime,
             excessive_speedup=excessive,
             held_out_correctness=held_out,
         )
@@ -588,6 +594,17 @@ def _make_submit_kernel(state: PopcornState) -> PluginTool:
                 "compiled": compiled,
                 "correctness": correctness,
                 "runtime_us": runtime,
+                # ref_runtime_us lands on the state diff (which feeds
+                # the trace viewer's state-changes panel and is what
+                # publish_traces.py reads to compute speedup) but is
+                # deliberately not part of the tool's effect envelope,
+                # which is what the agent sees as the tool result.
+                "ref_runtime_us": ref_runtime,
+                "speedup": (
+                    round(ref_runtime / runtime, 4)
+                    if ref_runtime and runtime
+                    else None
+                ),
             },
         }
         return _payload(
